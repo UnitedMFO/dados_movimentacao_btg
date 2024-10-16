@@ -1,120 +1,115 @@
 import pandas as pd
 import os
 from openpyxl import load_workbook
-from utils import formata_cpj, formata_para_real
+from utilidades import formata_cpj, formata_para_real
 from openpyxl.styles import PatternFill
 
 
-
-def recebe_e_cria_movimentacao(csv_filename, base_nome_arquivo):
-    # Define o diretório onde o arquivo Excel será salvo
-    diretorio_destino = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'relatorios')
-    os.makedirs(diretorio_destino, exist_ok=True)  # Cria o diretório "relatorios" se ele não existir
+def criar_relatorio_movimentacoes(nome_arquivo_csv, nome_base_arquivo):
+    """Lê um CSV, gera um arquivo Excel e remove o arquivo CSV original."""
+    # Define o diretório de destino para salvar o arquivo Excel
+    diretorio_relatorios = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'relatorios')
+    os.makedirs(diretorio_relatorios, exist_ok=True)  # Cria o diretório "relatorios" se não existir
 
     # Lê o arquivo CSV
-    df = pd.read_csv(csv_filename, delimiter=',', encoding='utf-8', header=0)
+    df_movimentacoes = pd.read_csv(nome_arquivo_csv, delimiter=',', encoding='utf-8', header=0)
 
     # Define as colunas esperadas
-    expected_columns = ['marketName', 'subMarketName', 'asset', 'fundCnpj', 'movementDate',
-                        'movementHistory', 'launchType', 'grossValue', 'irValue', 'iofValue',
-                        'dueDate', 'index', 'fee', 'issuer', 'accountingGroupCode']
+    colunas_esperadas = ['marketName', 'subMarketName', 'asset', 'fundCnpj', 'movementDate',
+                         'movementHistory', 'launchType', 'grossValue', 'irValue', 'iofValue',
+                         'dueDate', 'index', 'fee', 'issuer', 'accountingGroupCode']
 
     # Filtra o DataFrame para manter apenas as colunas esperadas
-    df = df[expected_columns]
+    df_movimentacoes = df_movimentacoes[colunas_esperadas]
 
-    # Cria o nome do arquivo Excel e evita sobrescrever arquivos existentes
+    # Gera um nome de arquivo Excel, evitando sobrescrever arquivos existentes
     contador = 1
-    nome_arquivo = base_nome_arquivo
-    caminho_arquivo = os.path.join(diretorio_destino, f"{nome_arquivo}.xlsx")
+    nome_arquivo_excel = nome_base_arquivo
+    caminho_arquivo_excel = os.path.join(diretorio_relatorios, f"{nome_arquivo_excel}.xlsx")
 
-    while os.path.exists(caminho_arquivo):
-        nome_arquivo = f"{base_nome_arquivo} ({contador})"
-        caminho_arquivo = os.path.join(diretorio_destino, f"{nome_arquivo}.xlsx")
+    while os.path.exists(caminho_arquivo_excel):
+        nome_arquivo_excel = f"{nome_base_arquivo} ({contador})"
+        caminho_arquivo_excel = os.path.join(diretorio_relatorios, f"{nome_arquivo_excel}.xlsx")
         contador += 1
 
     # Salva o DataFrame como Excel no diretório correto
-    df.to_excel(caminho_arquivo, index=False)
+    df_movimentacoes.to_excel(caminho_arquivo_excel, index=False)
 
     # Remove o arquivo CSV original
-    os.remove(csv_filename)
-    print(f"Arquivo Excel criado com sucesso")
+    os.remove(nome_arquivo_csv)
+    print(f"Arquivo Excel criado com sucesso em: {caminho_arquivo_excel}")
 
-    return caminho_arquivo
+    return caminho_arquivo_excel
 
 
-def formata_movimentacao(excel_filename):
-    list_negativos = ['CRÉDITO', 'JUROS', 'JUROS S/ CAPITAL', 'RECEBIMENTO DIVIDENDOS', 'RI', 'RS', 'VENCIMENTO DE TÍTULO', 'VENDA','AMORTIZAÇÃO','RENDIMENTO']
-    excel_df = pd.read_excel(excel_filename)
+def formatar_relatorio_movimentacoes(nome_arquivo_excel):
+    """Aplica formatação a um arquivo Excel, como formatação de CNPJ e ajustes nos valores brutos."""
+    tipos_movimentacoes_negativas = ['CRÉDITO', 'JUROS', 'JUROS S/ CAPITAL', 'RECEBIMENTO DIVIDENDOS', 'RI', 'RS',
+                                     'VENCIMENTO DE TÍTULO', 'VENDA', 'AMORTIZAÇÃO', 'RENDIMENTO']
+
+    # Lê o arquivo Excel
+    df_movimentacoes = pd.read_excel(nome_arquivo_excel)
 
     # Formata o CNPJ na coluna 'fundCnpj'
-    excel_df['fundCnpj'] = excel_df['fundCnpj'].apply(formata_cpj)
+    df_movimentacoes['fundCnpj'] = df_movimentacoes['fundCnpj'].apply(formata_cpj)
 
-    # Percorre cada linha do DataFrame
-    for index, row in excel_df.iterrows():
-        # Verifica se 'fundCnpj' está vazio e aplica as lógicas para CC, RF, ou ACOES
-        if pd.isna(row['fundCnpj']):
-            if row['subMarketName'] == 'CC':
-                excel_df.at[index, 'fundCnpj'] = 'cash'
-            elif row['subMarketName'] in ['RF', 'ACOES']:
-                excel_df.at[index, 'fundCnpj'] = row['asset']
+    # Ajusta CNPJ e valores com base nas condições
+    for index, linha in df_movimentacoes.iterrows():
+        if pd.isna(linha['fundCnpj']):
+            if linha['subMarketName'] == 'CC':
+                df_movimentacoes.at[index, 'fundCnpj'] = 'cash'
+            elif linha['subMarketName'] in ['RF', 'ACOES']:
+                df_movimentacoes.at[index, 'fundCnpj'] = linha['asset']
 
-        # Verifica se o valor de 'launchType' contém qualquer item da lista_negativos
-        # Se corresponder, torna o valor de 'grossValue' negativo
-        if any(neg in str(row['launchType']).upper() for neg in list_negativos):
-            excel_df.at[index, 'grossValue'] = -abs(row['grossValue'])
+        # Torna 'grossValue' negativo se o tipo de lançamento for de crédito ou similares
+        if any(tipo in str(linha['launchType']).upper() for tipo in tipos_movimentacoes_negativas):
+            df_movimentacoes.at[index, 'grossValue'] = -abs(linha['grossValue'])
 
-    # Salvando as mudanças de volta no arquivo Excel
-    excel_df.to_excel(excel_filename, index=False)
-    print(f"Formatação concluída com sucesso")
+    # Salva as mudanças de volta no arquivo Excel
+    df_movimentacoes.to_excel(nome_arquivo_excel, index=False)
+    print(f"Formatação do relatório concluída com sucesso")
 
 
+def calcular_valor_liquido(nome_arquivo_excel):
+    """Calcula o valor líquido subtraindo os valores de IR e IOF dos valores brutos."""
+    df_movimentacoes = pd.read_excel(nome_arquivo_excel)
 
-def calcula_valor_liquido(excel_filename):
-    # Lê o arquivo Excel
-    excel_df = pd.read_excel(excel_filename)
-
-    # Calcula o valor líquido, considerando casos onde 'irValue' ou 'iofValue' podem estar vazios
-    excel_df['netValue'] = excel_df.apply(
-        lambda row: row['grossValue'] if pd.isna(row['irValue']) or pd.isna(row['iofValue'])
-        else row['grossValue'] - row['irValue'] - row['iofValue'],
+    # Calcula o valor líquido, subtraindo IR e IOF, se existirem
+    df_movimentacoes['netValue'] = df_movimentacoes.apply(
+        lambda linha: linha['grossValue'] if pd.isna(linha['irValue']) or pd.isna(linha['iofValue'])
+        else linha['grossValue'] - linha['irValue'] - linha['iofValue'],
         axis=1
     )
 
-    # Inserir a coluna 'netValue' logo após 'iofValue'
-    cols = excel_df.columns.tolist()  # Lista atual de colunas
-    iof_index = cols.index('iofValue')  # Encontrar o índice de 'iofValue'
-    # Inserir 'netValue' logo após 'iofValue'
-    cols.insert(iof_index + 1, cols.pop(cols.index('netValue')))
-    excel_df = excel_df[cols]  # Reordenar o DataFrame com a nova ordem de colunas
+    # Reordenar colunas para que 'netValue' fique logo após 'iofValue'
+    colunas = df_movimentacoes.columns.tolist()
+    iof_coluna_index = colunas.index('iofValue')
+    colunas.insert(iof_coluna_index + 1, colunas.pop(colunas.index('netValue')))
+    df_movimentacoes = df_movimentacoes[colunas]  # Reordena o DataFrame
 
-    # Salvando as mudanças de volta no arquivo Excel
-    excel_df.to_excel(excel_filename, index=False)
-    formata_para_real(excel_filename, ['H', 'I', 'J', 'K'])
-    print(f"Valor líquido calculado com sucesso")
+    # Salva o arquivo Excel atualizado
+    df_movimentacoes.to_excel(nome_arquivo_excel, index=False)
 
-
-
+    # Aplica formatação monetária nas colunas especificadas
+    formata_para_real(nome_arquivo_excel, ['H', 'I', 'J', 'K'])
+    print(f"Valor líquido calculado e formatado com sucesso")
 
 
-def destaca_negativos(excel_filename):
-    # Carrega o arquivo Excel para aplicar a formatação com openpyxl
-    wb = load_workbook(excel_filename)
-    ws = wb.active
+def destacar_valores_negativos(nome_arquivo_excel):
+    """Destaca em amarelo as células que possuem valores negativos na coluna de valores brutos."""
+    # Carrega o arquivo Excel usando openpyxl
+    workbook = load_workbook(nome_arquivo_excel)
+    planilha = workbook.active
 
-    # Define um preenchimento amarelo para células negativas
-    yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+    # Define o preenchimento amarelo para valores negativos
+    preenchimento_amarelo = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
 
-    # Aplica o preenchimento amarelo nas células da coluna 'grossValue' com valores negativos
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=8, max_col=8):  # Coluna H é a 8ª
-        for cell in row:
-            if cell.value is not None and cell.value < 0:
-                cell.fill = yellow_fill
+    # Aplica o preenchimento em células da coluna 'grossValue' (coluna H)
+    for linha in planilha.iter_rows(min_row=2, max_row=planilha.max_row, min_col=8, max_col=8):  # Coluna H = 8ª coluna
+        for celula in linha:
+            if celula.value is not None and celula.value < 0:
+                celula.fill = preenchimento_amarelo
 
     # Salva o arquivo Excel com as formatações aplicadas
-    wb.save(excel_filename)
-
-
-
-
-
-
+    workbook.save(nome_arquivo_excel)
+    print(f"Valores negativos destacados no arquivo Excel")

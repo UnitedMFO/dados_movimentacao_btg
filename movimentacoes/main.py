@@ -3,9 +3,9 @@ import requests
 import time
 import sys
 from executaServidor import run_server, webhook_completed_event  # Importa o evento do servidor
-from data_validation import obter_codigo_cliente, obter_data_post
-from api_requests import required_token, fazer_requisicao_movement
-from trate_data_csv import recebe_e_cria_movimentacao, formata_movimentacao, calcula_valor_liquido, destaca_negativos
+from validacao_de_dados import obter_codigo_cliente, obter_data_post
+from requisicoes_api import obter_token_autenticacao, fazer_requisicao_movimentacoes
+from trate_data_csv import criar_relatorio_movimentacoes, formatar_relatorio_movimentacoes, calcular_valor_liquido, destacar_valores_negativos
 
 def main():
     # Inicia o servidor Flask uma vez no início
@@ -21,7 +21,7 @@ def main():
     while True:
         # Solicitar credenciais do cliente
         try:
-            token = required_token()
+            token = obter_token_autenticacao()
             data_req = obter_data_post()
             codigo_cliente, base_nome_arquivo = obter_codigo_cliente(token, data_req[0])
         except Exception as e:
@@ -30,7 +30,7 @@ def main():
 
         # Tentar fazer a requisição de movimentação
         try:
-            fazer_requisicao_movement(codigo_cliente, data_req[0], data_req[1], token)
+            fazer_requisicao_movimentacoes(codigo_cliente, data_req[0], data_req[1], token)
         except Exception as e:
             print(f"Erro ao executar a requisição de movimento: {e}")
             continue
@@ -46,10 +46,10 @@ def main():
         # Processar o arquivo gerado após o webhook
         csv_filename = f'{codigo_cliente}.csv'
         try:
-            excel_filename = recebe_e_cria_movimentacao(csv_filename, base_nome_arquivo)
-            formata_movimentacao(excel_filename)
-            calcula_valor_liquido(excel_filename)
-            destaca_negativos(excel_filename)
+            excel_filename = criar_relatorio_movimentacoes(csv_filename, base_nome_arquivo)
+            formatar_relatorio_movimentacoes(excel_filename)
+            calcular_valor_liquido(excel_filename)
+            destacar_valores_negativos(excel_filename)
             print("Processamento concluído com sucesso.")
         except Exception as e:
             print(f"Erro ao processar o arquivo: {e}")

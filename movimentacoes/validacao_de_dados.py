@@ -1,7 +1,7 @@
 import os
 import sys
-from utils import validar_data
-from api_requests import requisicao_dados_cadastrais
+from utilidades import validar_data
+from requisicoes_api import requisicao_dados_cadastrais
 from datetime import date, timedelta
 
 
