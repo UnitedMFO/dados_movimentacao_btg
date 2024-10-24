@@ -2,7 +2,8 @@ import pandas as pd
 import os
 from openpyxl import load_workbook
 from utilidades import formata_cpj, formata_para_real
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, NamedStyle
+
 
 
 def criar_relatorio_movimentacoes(nome_arquivo_csv, nome_base_arquivo):
@@ -113,3 +114,67 @@ def destacar_valores_negativos(nome_arquivo_excel):
     # Salva o arquivo Excel com as formatações aplicadas
     workbook.save(nome_arquivo_excel)
     print(f"Valores negativos destacados no arquivo Excel")
+
+
+def criar_planilha_resumo(nome_arquivo_excel):
+    """Cria uma nova planilha 'Resumo' com fundCnpj, launchType, irValue, iofValue e irTotal, com formatação contábil brasileira."""
+
+    # Carrega o arquivo Excel existente
+    df_movimentacoes = pd.read_excel(nome_arquivo_excel)
+
+    # Faz um único groupby para calcular todas as somas de uma vez
+    df_resumo = df_movimentacoes.groupby(['fundCnpj', 'launchType']).agg(
+        grossValue=('grossValue', 'sum'),
+        irValue=('irValue', 'sum'),
+        iofValue=('iofValue', 'sum')
+    ).reset_index()
+
+    # Calcula irTotal em uma única etapa
+    df_resumo['irTotal'] = df_resumo['irValue'] + df_resumo['iofValue']
+
+    # Faz o pivot apenas para grossValue
+    df_pivot_gross = df_resumo.pivot_table(
+        index='fundCnpj',  # Mantém o fundCnpj como índice
+        columns='launchType',  # Cada valor de launchType será uma nova coluna
+        values='grossValue',  # Os valores que serão colocados nas células
+        aggfunc='sum',  # Soma os valores (caso haja múltiplos)
+        fill_value=0  # Preenche valores faltantes com 0
+    )
+
+    # Agrupa por fundCnpj para somar os valores de IR e IOF
+    df_ir_iof = df_resumo.groupby('fundCnpj').agg(
+        irValue=('irValue', 'sum'),
+        iofValue=('iofValue', 'sum'),
+        irTotal=('irTotal', 'sum')
+    ).reset_index()
+
+    # Junta os resultados finais (grossValue com IR e IOF)
+    df_final = pd.merge(df_pivot_gross, df_ir_iof, on='fundCnpj', how='left')
+
+    # Salva a nova planilha "Resumo" com pandas
+    with pd.ExcelWriter(nome_arquivo_excel, engine='openpyxl', mode='a') as writer:
+        df_final.to_excel(writer, sheet_name='Resumo', index=False)
+
+    # Recarrega o arquivo Excel para aplicar formatações
+    workbook = load_workbook(nome_arquivo_excel)
+    sheet = workbook['Resumo']
+
+    # Cria o estilo contábil brasileiro
+    contabilidade_style = NamedStyle(name="contabilidade_brasileira", number_format='R$ #,##0.00')
+
+    # Aplica o estilo de contabilidade apenas às colunas numéricas
+    for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=2, max_col=sheet.max_column):
+        for cell in row:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = contabilidade_style.number_format  # Aplica o formato sem recriar o estilo
+
+    # Salva o arquivo Excel com a nova planilha e formatação aplicada
+    workbook.save(nome_arquivo_excel)
+
+    print(f"Resumo criado com sucesso no arquivo {nome_arquivo_excel}")
+
+
+
+
+
+

@@ -1,7 +1,7 @@
 import os
 import sys
 from utilidades import validar_data
-from requisicoes_api import requisicao_dados_cadastrais
+from requisicoes_api import obter_dados_cadastrais_cliente
 from datetime import date, timedelta
 
 
@@ -31,7 +31,7 @@ def obter_codigo_cliente(token,data):
         codigo_cliente = input("Digite o código do cliente: ")
 
         if len(codigo_cliente) == 9 and codigo_cliente.isdigit():
-            dados = requisicao_dados_cadastrais(codigo_cliente, token)
+            dados = obter_dados_cadastrais_cliente(codigo_cliente, token)
 
             # Se os dados forem válidos, retorna; caso contrário, informa o erro e repete o loop
             if dados is not None:

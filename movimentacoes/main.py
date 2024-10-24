@@ -5,7 +5,7 @@ import sys
 from executaServidor import run_server, webhook_completed_event  # Importa o evento do servidor
 from validacao_de_dados import obter_codigo_cliente, obter_data_post
 from requisicoes_api import obter_token_autenticacao, fazer_requisicao_movimentacoes
-from trate_data_csv import criar_relatorio_movimentacoes, formatar_relatorio_movimentacoes, calcular_valor_liquido, destacar_valores_negativos
+from trate_data_csv import criar_relatorio_movimentacoes, formatar_relatorio_movimentacoes, calcular_valor_liquido, destacar_valores_negativos, criar_planilha_resumo
 
 def main():
     # Inicia o servidor Flask uma vez no início
@@ -50,6 +50,7 @@ def main():
             formatar_relatorio_movimentacoes(excel_filename)
             calcular_valor_liquido(excel_filename)
             destacar_valores_negativos(excel_filename)
+            criar_planilha_resumo(excel_filename)
             print("Processamento concluído com sucesso.")
         except Exception as e:
             print(f"Erro ao processar o arquivo: {e}")
