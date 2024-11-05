@@ -25,7 +25,6 @@ def obter_data_post():
 
     return startDate, endDate
 
-
 def obter_codigo_cliente(token,data):
     while True:
         codigo_cliente = input("Digite o código do cliente: ")

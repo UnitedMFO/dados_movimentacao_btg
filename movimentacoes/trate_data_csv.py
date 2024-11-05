@@ -13,6 +13,7 @@ def criar_relatorio_movimentacoes(nome_arquivo_csv, nome_base_arquivo):
     os.makedirs(diretorio_relatorios, exist_ok=True)  # Cria o diretório "relatorios" se não existir
 
     # Lê o arquivo CSV
+    print(nome_arquivo_csv)
     df_movimentacoes = pd.read_csv(nome_arquivo_csv, delimiter=',', encoding='utf-8', header=0)
 
     # Define as colunas esperadas
@@ -41,7 +42,6 @@ def criar_relatorio_movimentacoes(nome_arquivo_csv, nome_base_arquivo):
     print(f"Arquivo Excel criado com sucesso em: {caminho_arquivo_excel}")
 
     return caminho_arquivo_excel
-
 
 def formatar_relatorio_movimentacoes(nome_arquivo_excel):
     """Aplica formatação a um arquivo Excel, como formatação de CNPJ e ajustes nos valores brutos."""

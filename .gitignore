@@ -1,1 +1,6 @@
 .env
+*.xls
+*.xlsx
+*.xlsm
+relatorios/
+*.rar
