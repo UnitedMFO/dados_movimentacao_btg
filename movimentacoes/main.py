@@ -5,7 +5,8 @@ import sys
 import os
 from executaServidor import run_server, webhook_completed_event
 from requisicoes_api import obter_token_autenticacao, fazer_requisicao_movimentacoes
-from trate_data_csv import criar_relatorio_movimentacoes, formatar_relatorio_movimentacoes, calcular_valor_liquido, destacar_valores_negativos, criar_planilha_resumo
+from trate_data_csv import criar_relatorio_movimentacoes, formatar_relatorio_movimentacoes, calcular_valor_liquido, \
+    destacar_valores_negativos, criar_planilha_resumo
 from base_clientes import ler_lista_clientes
 
 
@@ -26,7 +27,6 @@ def listar_arquivos_xlsx():
     return lista_nomes_xlsx
 
 
-
 def encontrar_correspondencia(codigo, lista_clientes):
     # Separar as duas listas dentro de nome_arquivo
     codigo_clientes, titular = lista_clientes
@@ -41,29 +41,23 @@ def encontrar_correspondencia(codigo, lista_clientes):
     # Retorna None se o código não for encontrado
     return None
 
-
-# def processar_relatorio_final(arquivo_csv):
-#     lista_clientes = ler_lista_clientes()
-#     try:
-#         titular = encontrar_correspondencia(arquivo_csv.replace(".csv",""),lista_clientes)
-#         print(titular)
-#         excel_filename = criar_relatorio_movimentacoes(arquivo_csv, titular)
-#         formatar_relatorio_movimentacoes(excel_filename)
-#         calcular_valor_liquido(excel_filename)
-#         destacar_valores_negativos(excel_filename)
-#         criar_planilha_resumo(excel_filename)
-#         print(f"Relatório finalizado com sucesso: {excel_filename}")
-#     except Exception as e:
-#         print(f"Erro ao processar o relatório {excel_filename}: {e}")
-#
-
 def processar_relatorio_final():
     arquivos_csv = listar_arquivos_xlsx()
     lista_clientes = ler_lista_clientes()
     try:
         for arquivo in arquivos_csv:
-            titular = encontrar_correspondencia(arquivo.replace(".csv",""),lista_clientes)+"_EM"
-            print(titular,arquivo)
+            # Remove a extensão do arquivo e tenta encontrar correspondência
+            codigo = arquivo.replace(".csv", "")
+            titular = encontrar_correspondencia(codigo, lista_clientes)
+
+            # Verifica se encontrou correspondência antes de continuar
+            if titular is None:
+                print(f"Não foi possível encontrar um cliente correspondente para o arquivo: {arquivo}")
+                continue  # Pula para o próximo arquivo
+
+            titular += "_EM"  # Concatena apenas se titular for válido
+            print(titular, arquivo)
+
             excel_filename = criar_relatorio_movimentacoes(arquivo, titular)
             formatar_relatorio_movimentacoes(excel_filename)
             calcular_valor_liquido(excel_filename)
@@ -72,10 +66,10 @@ def processar_relatorio_final():
             print(f"Relatório finalizado com sucesso: {excel_filename}")
             print("\n")
     except Exception as e:
-        print(f"Erro ao processar o relatório {titular}: {e}")
+        print(f"Erro ao processar o relatório: {e}")
+
 
 processar_relatorio_final()
-
 
 
 def iniciar_servidor():
@@ -88,6 +82,7 @@ def iniciar_servidor():
     except Exception as e:
         print(f"Erro ao iniciar o servidor: {e}")
         sys.exit(1)
+
 
 def fecha_servidor():
     # Encerra o servidor Flask após o processamento de todos os clientes
@@ -114,15 +109,12 @@ def percorrer_codigo_clientes(codigo_clientes, token, data_req):
             continue
         print("Aguardando o término do processamento do webhook (até 5 minutos)...")
 
-
         if webhook_completed_event.wait(timeout=300):  # Espera até 300 segundos (5 minutos)
             print("Webhook processado com sucesso.")
             webhook_completed_event.clear()
         else:
-            print(f"Tempo limite de 5 minutos atingido para o cliente {codigo_cliente}. Pulando para o próximo cliente.")
-
-
-
+            print(
+                f"Tempo limite de 5 minutos atingido para o cliente {codigo_cliente}. Pulando para o próximo cliente.")
 
 
 def main():
@@ -133,7 +125,7 @@ def main():
     # Obtém o token de autenticação e a data de requisição uma vez
     try:
         token = obter_token_autenticacao()
-        data_req = ["2024-10-01", "2024-10-31"]
+        data_req = ["2024-11-01", "2024-11-30"]
     except Exception as e:
         print(f"Erro ao obter o token de autenticação ou data: {e}")
         sys.exit(1)
@@ -141,7 +133,6 @@ def main():
     percorrer_codigo_clientes(codigos_clientes, token, data_req)
 
     fecha_servidor()
-
 
 #
 # if __name__ == '__main__':
